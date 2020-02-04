@@ -1,0 +1,5 @@
+.stack-work/
+AoC2019.cabal
+*~
+# Project exclude paths
+/out/
