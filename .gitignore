@@ -1,5 +1,7 @@
 .stack-work/
-AoC2019.cabal
+*.cabal
 *~
 # Project exclude paths
 /out/
+/.idea/
+*.iml
