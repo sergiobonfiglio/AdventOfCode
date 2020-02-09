@@ -6,11 +6,11 @@ import qualified Data.HashMap.Strict as Map
 import           Data.Maybe
 import           Debug.Trace         (trace)
 
-solve = numOrbits' planetsMap "COM"
+solve = show $ numOrbits' planetsMap "COM"
   where
     planetsMap = buildMap input
 
-solvePart2 = length pathSource - commonPathLen + length pathTarget - commonPathLen
+solvePart2 = show $ length pathSource - commonPathLen + length pathTarget - commonPathLen
   where
     commonPathLen = length [1 | x <- zipWith (==) pathSource pathTarget, x]
     pathSource = reverse $ buildPathToRoot reverseMap "YOU"

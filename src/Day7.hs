@@ -1,43 +1,112 @@
 module Day7
   ( solve
+  , solvePart2
   ) where
 
 import           Data.List
+import           Debug.Trace
 
-type MachineState = (Int, [Int], [Int], [Int])
+data Progress
+  = NotStarted
+  | Processing
+  | WaitInput
+  | Halted
+  deriving (Eq, Show)
 
-trySequence :: [Int] -> [Int] -> Int
-trySequence input = foldl (\acc x -> output input [x, acc]) 0
+type MachineState = (Int, [Int], [Int], [Int], Progress)
 
-solve = solveFor input
+--TODO: try with record syntax
+--  MachineState
+--    { position :: Int
+--    , tape ::     [Int]
+--    , inp ::      [Int]
+--    , out ::      [Int]
+--    , progress :: Progress
+--    }
+solve = show $ snd $ solveFor input
+
+solvePart2 = show $ snd $ solveForPart2 input
 
 solveFor input = maximumBy (\(c1, v1) (_, v2) -> compare v1 v2) results
   where
     results = map (\x -> (x, trySequence input x)) (permutations [0 .. 4])
 
-output tape input = last outputs
+solveForPart2 input = maximumBy (\(c1, v1) (_, v2) -> compare v1 v2) results
   where
-    (_, _, _, outputs) = next' (0, tape, input, [])
+    results = map (\x -> (x, trySequenceLoop input x)) (permutations [5 .. 9])
 
-next' :: MachineState -> MachineState
-next' (pos, tape, input, out)
-  | pos < 0 || pos >= length tape = (pos, tape, input, out)
-  | otherwise = next' (nextPos, nextTape, nextInteger, nextOut)
+computeOutput tape input = last outputs
   where
-    (nextPos, nextTape, nextInteger, nextOut) = next (pos, tape, input, out)
+    (_, _, _, outputs, _) = computeProgram (0, tape, input, [], NotStarted)
+
+trySequence :: [Int] -> [Int] -> Int
+trySequence input = foldl (\acc x -> computeOutput input [x, acc]) 0
+
+trySequenceLoop :: [Int] -> [Int] -> Int
+trySequenceLoop input settings = loopUntilHalt 0 $ initAmps input settings
+
+initAmps :: [Int] -> [Int] -> [MachineState]
+initAmps tape [a, b, c, d, e] =
+  [ (0, tape, [a], [], NotStarted)
+  , (0, tape, [b], [], NotStarted)
+  , (0, tape, [c], [], NotStarted)
+  , (0, tape, [d], [], NotStarted)
+  , (0, tape, [e], [], NotStarted)
+  ]
+
+loopUntilHalt :: Int -> [MachineState] -> Int
+loopUntilHalt x allAmps
+  | getProgress lastAmp == Halted = getOut lastAmp
+  | otherwise =
+    let lastLoop = loop x allAmps
+        (_, _, _, lastOut, _) = last lastLoop
+     in loopUntilHalt (last lastOut) lastLoop
+  where
+    firstAmp = head allAmps
+    lastAmp = last allAmps
+
+loop :: Int -> [MachineState] -> [MachineState]
+loop x =
+  foldl'
+    (\allAmps curMs ->
+       let lastOut =
+             if null allAmps
+               then x
+               else getOut (last allAmps)
+           ms@(_, _, _, output, progress) = computeProgram (applyInput curMs lastOut)
+        in allAmps ++ [ms])
+    []
+  where
+    applyInput :: MachineState -> Int -> MachineState
+    applyInput (pos, tape, input, out, progress) x = (pos, tape, input ++ [x], out, progress)
+    
+getOut :: MachineState -> Int
+getOut (pos, tape, input, out, progress) = last out
+getProgress :: MachineState -> Progress
+getProgress (pos, tape, input, out, progress) = progress
+
+computeProgram :: MachineState -> MachineState
+computeProgram ms@(pos, tape, input, out, progress)
+  | progress == Halted || (progress == WaitInput && null input) = ms
+  | otherwise = computeProgram newMs
+  where
+    newMs = next ms
 
 next :: MachineState -> MachineState
-next (posIn, tapeIn, input, outputs)
+next (posIn, tapeIn, input, outputs, progress)
     -- end
-  | opcode == 99 = (-1, tapeIn, input, outputs)
+  | opcode == 99 = (posIn, tapeIn, input, outputs, Halted)
     --adds
-  | opcode == 1 = (posIn + 4, updateTape param3 (param1 + param2), input, outputs)
+  | opcode == 1 = (posIn + 4, updateTape param3 (param1 + param2), input, outputs, Processing)
     --multiplies
-  | opcode == 2 = (posIn + 4, updateTape param3 (param1 * param2), input, outputs)
+  | opcode == 2 = (posIn + 4, updateTape param3 (param1 * param2), input, outputs, Processing)
   --inputs
-  | opcode == 3 = (posIn + 2, updateTape val1 (head input), tail input, outputs)
+  | opcode == 3 =
+    if not (null input)
+      then (posIn + 2, updateTape val1 (head input), tail input, outputs, Processing)
+      else (posIn, tapeIn, input, outputs, WaitInput)
   --outputs
-  | opcode == 4 = (posIn + 2, tapeIn, input, outputs ++ [param1])
+  | opcode == 4 = (posIn + 2, tapeIn, input, outputs ++ [param1], Processing)
   --jump-if-true
   | opcode == 5 =
     ( if param1 /= 0
@@ -45,7 +114,8 @@ next (posIn, tapeIn, input, outputs)
         else posIn + 3
     , tapeIn
     , input
-    , outputs)
+    , outputs
+    , Processing)
   --jump-if-false
   | opcode == 6 =
     ( if param1 == 0
@@ -53,7 +123,8 @@ next (posIn, tapeIn, input, outputs)
         else posIn + 3
     , tapeIn
     , input
-    , outputs)
+    , outputs
+    , Processing)
   --less than
   | opcode == 7 =
     ( posIn + 4
@@ -63,7 +134,8 @@ next (posIn, tapeIn, input, outputs)
            then 1
            else 0)
     , input
-    , outputs)
+    , outputs
+    , Processing)
   --equals
   | opcode == 8 =
     ( posIn + 4
@@ -73,7 +145,8 @@ next (posIn, tapeIn, input, outputs)
            then 1
            else 0)
     , input
-    , outputs)
+    , outputs
+    , Processing)
   | otherwise = error ("unknown opcode!" ++ show opcode ++ " at " ++ show posIn)
   where
     updateTape i x = take i tapeIn ++ [x] ++ drop (i + 1) tapeIn
@@ -96,6 +169,71 @@ test1 = [3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0]
 
 test2 :: [Int]
 test2 = [3, 23, 3, 24, 1002, 24, 10, 24, 1002, 23, -1, 23, 101, 5, 23, 23, 1, 24, 23, 23, 4, 23, 99, 0, 0]
+
+test1p2 :: [Int]
+test1p2 =
+  [3, 26, 1001, 26, -4, 26, 3, 27, 1002, 27, 2, 27, 1, 27, 26, 27, 4, 27, 1001, 28, -1, 28, 1005, 28, 6, 99, 0, 0, 5]
+
+test2p2 :: [Int]
+test2p2 =
+  [ 3
+  , 52
+  , 1001
+  , 52
+  , -5
+  , 52
+  , 3
+  , 53
+  , 1
+  , 52
+  , 56
+  , 54
+  , 1007
+  , 54
+  , 5
+  , 55
+  , 1005
+  , 55
+  , 26
+  , 1001
+  , 54
+  , -5
+  , 54
+  , 1105
+  , 1
+  , 12
+  , 1
+  , 53
+  , 54
+  , 53
+  , 1008
+  , 54
+  , 0
+  , 55
+  , 1001
+  , 55
+  , 1
+  , 55
+  , 2
+  , 53
+  , 55
+  , 53
+  , 4
+  , 53
+  , 1001
+  , 56
+  , -1
+  , 56
+  , 1005
+  , 56
+  , 6
+  , 99
+  , 0
+  , 0
+  , 0
+  , 0
+  , 10
+  ]
 
 test3 :: [Int]
 test3 =
