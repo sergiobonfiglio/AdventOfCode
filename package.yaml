@@ -25,6 +25,7 @@ dependencies:
 - Chart
 - containers
 - unordered-containers
+- split
 
 library:
   source-dirs: src
