@@ -8,6 +8,7 @@ import           Day5
 import           Day6
 import           Day7
 import           Day8
+import           Day9
 
 main :: IO ()
 main = do
@@ -25,3 +26,5 @@ main = do
   putStrLn $ "Day 7.2:" ++ Day7.solvePart2  
   putStrLn $ "Day 8:" ++ Day8.solve
   putStrLn $ "Day 8.2:" ++ Day8.solvePart2
+  putStrLn $ "Day 9:" ++ Day9.solve
+  putStrLn $ "Day 9.2:" ++ Day9.solvePart2
