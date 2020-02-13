@@ -8,7 +8,7 @@ import           Data.Foldable   (minimumBy)
 import           Data.List
 import           Data.List.Split
 
-solve = solvePart1 input
+solve = show $ solvePart1 input
 
 solvePart1 :: String -> Int
 solvePart1 x = count 1 minLayer * count 2 minLayer
