@@ -31,3 +31,4 @@ main = do
   putStrLn $ "Day 9:" ++ Day9.solve
   putStrLn $ "Day 9.2:" ++ Day9.solvePart2
   putStrLn $ "Day 10:" ++ Day10.solve
+  putStrLn $ "Day 10.2:" ++ Day10.solvePart2
